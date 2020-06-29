@@ -19,13 +19,14 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
 from pathlib import Path
+import numpy as np
 
 
 # # Functions
 
 # +
 def get_mean_std(da):
-    return da.mean(['time','lon'], keep_attrs = True), da.std('time', keep_attrs = True)
+    return da.mean(['time','lon'], keep_attrs = True), da.std(['time','lon','year_ens'], keep_attrs = True)
 
 
 def preprocess(da):
@@ -84,18 +85,51 @@ da_pv = xr.apply_ufunc(ttest_ind_wrap, mean_el, mean_la, \
 
 # # Plotting
 
+mean_el.std('year_ens').plot.contourf(levels = 11)
+
 # +
-diff = mean_el-mean_la
+mean_el_plot = mean_el.mean('year_ens', keep_attrs = True)
+mean_la_plot = mean_la.mean('year_ens', keep_attrs = True)
+diff = mean_el_plot-mean_la_plot
 diff.attrs['units'] = 'K'
-diff.attrs['long_name'] = 'ENSO difference'
+diff.attrs['long_name'] = 'difference'
+
 
 plt.rcParams.update({'font.size': 20})
-p = diff.mean('year_ens', keep_attrs = True).plot(size = 5)
+c_pad = 0.2
+c_shrink = 0.99
+c_aspect = 20
+cf_levels = [100.,150.,200.,240.,260.,300.,400.,500.,600.,700.]
+c_levels = np.arange(0,20,1)
+fs = 16
+
+fig, axes = plt.subplots(ncols = 3, figsize = (16,6), sharey = True)
+
+ax = axes[0]
+p = mean_el_plot.plot.contourf(ax = ax, levels = cf_levels, add_colorbar = False)
+mean_el.std('year_ens').plot.contour(levels = c_levels, colors='k', ax = ax)
+ax.set_title(f'average El Nino in {sel_month}', fontsize = fs)
+
+ax = axes[1]
+cbar = fig.colorbar(p, ax=axes[:2],  location='bottom', \
+                    ticks=cf_levels, extend = 'both', spacing='proportional', \
+                    pad = c_pad, shrink=c_shrink, aspect = c_aspect)
+cbar.set_label('temperature [K]')
+cbar.ax.tick_params(labelsize=12) 
+
+mean_la_plot.plot.contourf(ax = ax, add_colorbar = False, levels = cf_levels, extend = 'both')
+mean_la.std('year_ens').plot.contour(levels = c_levels, colors='k', ax = ax)
+ax.set_ylabel('')
+ax.set_title(f'average La Nina in {sel_month}', fontsize = fs)
+
+ax = axes[2]
+diff.plot(ax = ax, robust = True, cbar_kwargs={'orientation': 'horizontal', 'pad': c_pad, \
+                                               'aspect': c_aspect/2., "shrink": c_shrink})
 # hatching to display pvalues smaller than 0.05 and 0.01, respectively
-ax = p.axes
 plot_kwargs2 = dict(levels = [0,0.05], hatches = ['\\\\',None], colors='none', add_colorbar=False)
 da_pv.plot.contourf(ax = ax, **plot_kwargs2)
 plot_kwargs2['levels'] = [0,0.01]
 plot_kwargs2['hatches'] = ['////',None]
 da_pv.plot.contourf(ax = ax, **plot_kwargs2)
-ax.set_title(f'Zonally avarage temperature diff. between El-Nino and La-Nina in {sel_month}', fontsize = 14)
+ax.set_title(f'Diff between El-Nino and La-Nina in {sel_month}', fontsize = fs)
+ax.set_ylabel('')
