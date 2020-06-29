@@ -25,8 +25,8 @@ import numpy as np
 # # Functions
 
 # +
-def get_mean_std(da):
-    return da.mean(['time','lon'], keep_attrs = True), da.std(['time','lon','year_ens'], keep_attrs = True)
+def get_mean_std(da, axes):
+    return da.mean(axes, keep_attrs = True), da.std(axes, keep_attrs = True)
 
 
 def preprocess(da):
@@ -72,8 +72,8 @@ sel_var = 'tem'
 ds_el = xr.open_mfdataset(el_in_files, concat_dim = 'year_ens', parallel = True, combine='nested', preprocess=preprocess)
 ds_la = xr.open_mfdataset(la_in_files, concat_dim = 'year_ens', parallel = True, combine='nested', preprocess=preprocess)
 # mean and std calculation
-mean_el, std_el = get_mean_std(ds_el[sel_var])
-mean_la, std_la = get_mean_std(ds_la[sel_var])
+mean_el, _ = get_mean_std(ds_el[sel_var], ['time','lon'])
+mean_la, _ = get_mean_std(ds_la[sel_var], ['time','lon'])
 
 # # P-values calculation
 
@@ -84,8 +84,6 @@ da_pv = xr.apply_ufunc(ttest_ind_wrap, mean_el, mean_la, \
                output_core_dims=[[]])
 
 # # Plotting
-
-mean_el.std('year_ens').plot.contourf(levels = 11)
 
 # +
 mean_el_plot = mean_el.mean('year_ens', keep_attrs = True)
@@ -133,3 +131,4 @@ plot_kwargs2['hatches'] = ['////',None]
 da_pv.plot.contourf(ax = ax, **plot_kwargs2)
 ax.set_title(f'Diff between El-Nino and La-Nina in {sel_month}', fontsize = fs)
 ax.set_ylabel('')
+fig.savefig('anything.pdf', bbox_inches='tight')
